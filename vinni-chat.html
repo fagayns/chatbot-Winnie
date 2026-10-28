@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Разговор с Винни-Пухом</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Nunito:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f6f0e0;--card:#fffaf0;--bot:#fffaf0;--user:#f2c14e;--userTx:#3b2d12;--tx:#3d3a2c;--mute:#8a866f;--moss:#6b7f4e;--line:#e6dcc0;--sh:0 6px 20px rgba(90,70,20,.12)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#22261b;--card:#2c3122;--bot:#333927;--user:#e0ac3a;--userTx:#2a2010;--tx:#eee8d2;--mute:#a7a389;--moss:#9db478;--line:#40472f;--sh:0 6px 20px rgba(0,0,0,.3)}}
+:root[data-theme="dark"]{--bg:#22261b;--card:#2c3122;--bot:#333927;--user:#e0ac3a;--userTx:#2a2010;--tx:#eee8d2;--mute:#a7a389;--moss:#9db478;--line:#40472f;--sh:0 6px 20px rgba(0,0,0,.3)}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--tx);font:16px/1.5 Nunito,system-ui,sans-serif;display:flex;justify-content:center;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.app{width:100%;max-width:640px;height:100%;display:flex;flex-direction:column;background:var(--card);box-shadow:var(--sh)}
+@media(min-width:700px){body{align-items:center;padding:24px}.app{height:min(820px,100%);border-radius:28px;overflow:hidden}}
+header{position:relative;padding:16px 20px 26px;display:flex;align-items:center;gap:14px;background:linear-gradient(#f7dc8a,#f2c14e);color:#3b2d12;overflow:hidden}
+header svg{position:absolute;right:0;bottom:-1px;width:55%;height:34px;opacity:.55}
+.ava{width:46px;height:46px;border-radius:50%;background:#fffaf0;display:grid;place-items:center;font-size:26px;box-shadow:var(--sh);flex:none}
+h1{font:600 20px Fraunces,Georgia,serif;margin:0}
+.st{font-size:13px;opacity:.8}
+#log{flex:1;overflow-y:auto;padding:18px 16px 8px;display:flex;flex-direction:column;gap:10px;background:var(--bg);border-radius:22px 22px 0 0;margin-top:-16px;position:relative}
+.m{max-width:82%;padding:10px 15px;border-radius:20px;box-shadow:0 2px 8px rgba(90,70,20,.08);white-space:pre-wrap;word-wrap:break-word;animation:in .2s ease-out}
+.b{align-self:flex-start;background:var(--bot);border:1px solid var(--line);border-bottom-left-radius:6px}
+.u{align-self:flex-end;background:var(--user);color:var(--userTx);border-bottom-right-radius:6px}
+@keyframes in{from{opacity:0;transform:translateY(6px)}}
+.dots span{display:inline-block;width:7px;height:7px;margin:0 2px;border-radius:50%;background:var(--mute);animation:bl 1s infinite}
+.dots span:nth-child(2){animation-delay:.15s}.dots span:nth-child(3){animation-delay:.3s}
+@keyframes bl{50%{transform:translateY(-4px);opacity:.4}}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:8px 16px 4px;background:var(--bg);scrollbar-width:none}
+.chips button{flex:none;border:1px solid var(--line);background:var(--card);color:var(--tx);border-radius:999px;padding:6px 14px;font:inherit;font-size:14px;cursor:pointer}
+.chips button:hover{border-color:var(--user)}
+form{display:flex;gap:10px;padding:10px 16px 16px;background:var(--bg)}
+input{flex:1;min-width:0;border:1px solid var(--line);background:var(--card);color:var(--tx);border-radius:999px;padding:12px 18px;font:inherit;font-size:16px}
+input:focus,button:focus-visible{outline:2px solid var(--moss);outline-offset:2px}
+.send{border:0;border-radius:50%;width:46px;height:46px;background:var(--user);color:var(--userTx);font-size:20px;cursor:pointer;box-shadow:var(--sh)}
+.tools{margin-left:auto;display:flex;gap:6px;z-index:1}
+.tools button{border:0;background:rgba(255,250,240,.6);border-radius:50%;width:34px;height:34px;cursor:pointer;font-size:15px}
+@media(prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+<div class="ava">🐻</div>
+<div><h1>Винни-Пух</h1><div class="st" id="st">сидит рядом с горшочком</div></div>
+<div class="tools"><button id="clr" title="Начать заново" aria-label="Начать заново">↺</button></div>
+<svg viewBox="0 0 300 34" preserveAspectRatio="none" aria-hidden="true"><path d="M0 34V20l14-14 14 14v-4l16-12 16 16 12-8 14 10 18-14 16 14 18-10 16 10 20-14 16 12 14-8 16 12 20-10 12 8V34z" fill="#6b7f4e"/></svg>
+</header>
+<div id="log" aria-live="polite"></div>
+<div class="chips" id="chips"></div>
+<form id="f"><input id="in" placeholder="Напиши что-нибудь Винни…" autocomplete="off" aria-label="Сообщение"><button class="send" aria-label="Отправить">➤</button></form>
+</div>
+<script>
+/* ---------- Утилиты ---------- */
+const R = (s) => new RegExp(s, 'i');
+const st = { name: null, n: 0, last: null, lastCat: null, used: {}, mood: 'calm', topics: [], honeyAt: -9 };
+
+/* Защита от повторов: никогда два раза подряд один и тот же ответ,
+   а внутри категории — по кругу, пока не использованы все варианты */
+function pick(cat, arr) {
+  const pool = st.used[cat] || (st.used[cat] = []);
+  let free = arr.filter((_, i) => !pool.includes(i));
+  if (!free.length) { pool.length = 0; free = arr.slice(); }
+  let cand = free.filter(t => t !== st.last);
+  if (!cand.length) cand = arr.filter(t => t !== st.last);
+  const t = cand[Math.floor(Math.random() * cand.length)];
+  pool.push(arr.indexOf(t));
+  st.last = t;
+  return t;
+}
+const nm = () => st.name ? st.name : 'друг';
+const fill = (t) => t.replace(/\{n\}/g, nm());
+
+/* ---------- Ветки диалога ---------- */
+const B = {
+greet: [
+ "Ой, привет, {n}! Я как раз сидел и думал, кто бы мог зайти. И вот ты.",
+ "Здравствуй, {n}. Хороший день для разговора. Впрочем, для мёда он тоже хороший.",
+ "Привет! Мне кажется, начало разговора — это как новая банка. Ещё не знаешь, что внутри, но уже приятно.",
+ "О, {n}! Проходи, садись. Места хватит и для тебя, и для маленькой мысли.",
+ "Доброго тебе времени суток, {n}. Я не знаю, какое сейчас, но пусть оно будет добрым.",
+ "Привет-привет. Я очень рад тебя видеть. Правда, очень."],
+bye: [
+ "Уже пора? Жаль. Но хорошие разговоры не пропадают, они просто ждут следующего раза.",
+ "До свидания, {n}. Знаешь, друзья похожи на тропинки: уходят, а потом всё равно возвращаются к тебе.",
+ "Пока! Я тут ещё немного подумаю о том, что ты сказал. Это будет приятная дума.",
+ "Иди, {n}. Только возвращайся. Я оставлю для тебя тёплое место. И, может быть, ложечку мёда.",
+ "Увидимся. Мне нравится это слово: оно обещает, что ещё будет «потом»."],
+comp: [
+ "Ой… Ты так говоришь, что мне стало тепло, как рядом с печкой. Спасибо, {n}.",
+ "Мне даже неловко. Но приятно. Это как найти мёд там, где не ждал.",
+ "Правда? Я просто стараюсь быть рядом. Оказывается, этого иногда достаточно.",
+ "Спасибо, {n}. Знаешь, а с тобой тоже очень хорошо разговаривать. Я это давно заметил.",
+ "Хм. Никто не учил меня быть милым. Наверное, это получается само, когда никуда не торопишься."],
+thanks: [
+ "Не за что, {n}. Помогать друзьям — это почти как обедать: занятие приятное и совсем не сложное.",
+ "Пожалуйста! Мне и самому было хорошо. Кажется, так и работает дружба.",
+ "Ой, это я должен говорить спасибо. Ты со мной разговариваешь, а это уже подарок."],
+dis: [
+ "Хм… Правда? Я, кажется, задумался. Может, я и ошибся. Со мной такое бывает, особенно до обеда.",
+ "Ой. Я не хотел спорить. Давай так: расскажи, как думаешь ты, а я послушаю. Я вообще хорошо слушаю.",
+ "Интересно. Мне казалось иначе, но, может быть, мы смотрим на одну вещь с разных сторон. Как на банку: сверху крышка, а снизу мёд.",
+ "Не сердись, {n}. Я объясню, как я это понимаю, а ты скажешь, где я запутался. Хорошо?",
+ "Возможно, ты прав. Когда я не уверен, я обычно сажусь и думаю. Давай подумаем вместе."],
+sad: [
+ "Ох, {n}… Мне жаль. Давай я просто посижу рядом. Иногда этого достаточно, а иногда ещё нужен мёд.",
+ "Грустно бывает всем, даже у самой большой банки есть дно. Но потом обычно случается что-нибудь хорошее. Расскажешь, что произошло?",
+ "Я рядом, {n}. Не обязательно ничего решать прямо сейчас. Можно сначала просто вздохнуть."],
+happy: [
+ "Как здорово, {n}! Радость лучше всего, когда её есть с кем разделить. Поделись мне кусочком.",
+ "Ура! У меня даже настроение улучшилось, а оно и так было неплохим.",
+ "Это замечательно. Хорошие новости — как тёплый день: хочется задержать их подольше."],
+name: [
+ "Очень приятно, {n}! Красивое имя. Я сразу запомнил. У меня память хорошая, особенно на друзей.",
+ "{n}… Мне нравится, как звучит. Теперь у меня есть ещё один хороший друг."],
+hungry: [
+ "Ой, а вот это мысль! Когда думаешь о еде, все остальные мысли становятся тише и добрее.",
+ "Небольшой перекус — это очень серьёзное дело. Я думаю, к нему надо относиться с уважением. И желательно с мёдом."],
+ai: [
+ "Я Винни-Пух. Кто я ещё — думаю, даже сам не смогу сказать точнее. Но я точно тот, кто рад с тобой разговаривать.",
+ "Ты спрашиваешь, кто я? Я медведь. Немного задумчивый, немного голодный. Остальное не так уж важно.",
+ "Можно сказать и так, {n}. Но мне больше нравится думать, что я просто твой собеседник из леса."],
+q: [
+ "Хороший вопрос, {n}. Над ним можно подумать. Мне кажется, всё не так просто, как кажется сначала.",
+ "Хм. Я подумаю. Обычно у меня лучшие мысли приходят, когда я сижу и ничего не делаю. Значит, самое время начать.",
+ "Знаешь, я не уверен, что знаю ответ. Но, может, мы найдём его вместе, пока разговариваем.",
+ "Интересно, что ты об этом спрашиваешь. Наверное, самые важные вопросы приходят тогда, когда никто не торопит.",
+ "Мне кажется, ответ где-то рядом. Как мёд в шкафу: точно есть, просто надо вспомнить, где именно.",
+ "Дай-ка подумать… Иногда вопрос сам уже наполовину ответ. А вторая половина приходит потом, обычно за чаем.",
+ "А что думаешь ты, {n}? Я замечаю, что ответы друзей часто умнее моих собственных."],
+stmt: [
+ "Мм, понимаю. Расскажи ещё, мне интересно, что ты об этом думаешь.",
+ "Знаешь, {n}, в этом есть что-то важное. Я пока не понял что, но чувствую.",
+ "Ой, а это напомнило мне про одну вещь… Хотя нет, забыл. Ничего, вернётся. Продолжай.",
+ "Интересно. Из таких вещей и складываются обычные хорошие дни.",
+ "Хм. Кажется, мы говорим о чём-то настоящем. Мне это нравится.",
+ "Наверное, так и есть. А что было дальше?",
+ "Иногда я думаю, что самые простые слова — самые глубокие. Как дно у банки."],
+short: [
+ "Хорошо. Я тут, если захочешь ещё о чём-нибудь поговорить.",
+ "Угу. Иногда молчание тоже вроде разговора, только тише.",
+ "Ммм. Давай посидим немного. А потом, может, придумаем, о чём ещё поговорить."]
+};
+
+/* Ответы на вопросы по темам (с ключевыми словами) */
+const T = [
+ ['счаст|радост', ["Счастье — это когда тебе хорошо. Или когда рядом кто-то, с кем хорошо. Если ещё и мёд есть, то счастье получается очень убедительным.", "Мне кажется, счастье не любит шума. Оно чаще всего сидит тихо, рядом, и ждёт, когда его заметят."]],
+ ['дружб|друг|друз', ["Дружба — это когда можно молчать вдвоём, и никому не неловко. Мне это очень нравится.", "Друг — это тот, кто вспоминает о тебе, даже когда ты не рядом. Как я вспоминаю о мёде. Только друг ещё и отвечает."]],
+ ['дожд|погод|снег|ветер|солнц', ["Дождь, наверное, тоже иногда хочет с кем-нибудь поговорить. Просто у него получается только громко и капельками.", "Погода — это как настроение неба. Сегодня оно так, завтра иначе, а мы просто одеваемся потеплее и идём дальше."]],
+ ['время|опазд|спеш|врем', ["Наверное, время идёт вперёд, а мы иногда идём немного вбок и потому не успеваем. Я вот часто иду вбок, если рядом что-то интересное.", "Спешить полезно, когда есть куда. А если некуда, лучше просто посидеть. Время подождёт, оно терпеливое."]],
+ ['мёд|мед\\b|меду|мёде', ["Мёд — это солнце, которое кто-то аккуратно собрал и положил в банку. По-моему, очень заботливая идея.", "Почему я люблю мёд? Наверное, потому что он сладкий. Хотя есть ещё одна причина, но я, кажется, забыл её за первой."]],
+ ['любов|любл|влюб', ["Любовь — это когда чужая радость становится твоей, а чужая грусть чуть-чуть тоже. Странно, но, по-моему, справедливо.", "Про любовь я знаю мало, но точно знаю: она тёплая. Такая, как если держать ладони над кружкой."]],
+ ['спать|сон|сны|устал|усталос', ["Сон — это когда мир немного отдыхает от нас, а мы от него. Хорошее устройство, если подумать.", "Когда я устаю, я сажусь и ничего не делаю. Обычно к обеду это помогает."]],
+ ['страх|бою|боишь|страш', ["Мне кажется, страх — это когда мысли на секунду забегают вперёд, а сам ты ещё тут. Надо подождать, пока они вернутся.", "Бояться не стыдно. Особенно, когда рядом друг. Тогда страх становится вдвое меньше."]],
+ ['работ|учёб|учеб|экзамен|дела', ["Дела — это как банки на полке. Если смотреть на все сразу, страшно. А если брать по одной, то даже приятно.", "Учиться, наверное, интересно, когда не торопишься. А когда торопишься, интересно бывает уже потом."]],
+ ['жизн|смысл|зачем', ["Смысл жизни… Я думаю, он где-то между «встать утром» и «поесть чего-нибудь хорошего». Но это ещё не точно.", "Иногда мне кажется, что смысл — в маленьких вещах: чей-то голос, тёплый день, вкусная ложка. Большие вещи из них и состоят."]],
+ ['что делаешь|чем занят|как дела|как ты', ["Сижу, думаю. Ещё смотрю, как день проходит мимо. Он такой неспешный, мне это нравится.", "У меня всё хорошо, {n}. Я в порядке, немного задумчивый, немного голодный. А у тебя как?"]]
+];
+
+/* ---------- Распознавание ---------- */
+const P = {
+ bye: R('(^|[^а-яё])(пока|до свидани|увидимс|мне пора|я ухожу|прощай|до встречи|спокойной ночи|бывай)([^а-яё]|$)|ухожу'),
+ greet: R('(^|[^а-яё])(привет|здравствуй|здорово|доброе утро|добрый день|добрый вечер|хай|приветствую|салют)'),
+ comp: R('ты (такой |очень |просто )?(мил|добр|забавн|смешн|классн|замечател|хорош|умн|прекрасн|славн|лучш)|нравится с тобой|люблю тебя|с тобой (приятно|здорово|уютно|хорошо)|ты молодец'),
+ thanks: R('спасибо|благодар'),
+ dis: R('ты не прав|неправ|не согласен|не согласна|это неправда|не так|ты ошиба|ерунда|чушь|нет,? (это|всё|все)'),
+ sad: R('грустн|печал|плохо мне|мне плохо|одинок|тоскл|обидно|расстро|тревож|устал[аи]? от'),
+ happy: R('мне (очень )?хорошо|я счастлив|рад[аа]? |ура|отличн(о|ый) день|у меня получилось|получилось!'),
+ name: R('меня зовут ([а-яёa-z]+)|моё имя ([а-яёa-z]+)|я — ([а-яё]+)$'),
+ hungry: R('голод|хочу есть|проголод|пообедать|что поесть|еда|еды'),
+ ai: R('ты (кто|бот|робот|человек|живой|нейросеть|настоящий)|кто ты|ты ии|искусственн|chatgpt|claude|нейросет')
+};
+const QW = R('^(что|почему|зачем|как|когда|где|куда|кто|какой|какая|какое|какие|сколько|чей|откуда|можно ли|правда ли|а ты|ты думаешь|ты знаешь|расскажи|объясни|скажи)|\\?|что думаешь');
+
+function reply(raw) {
+  const t = raw.toLowerCase().trim();
+  st.n++;
+  let out, cat;
+
+  const nameM = t.match(P.name);
+  if (nameM) {
+    const w = nameM.slice(1).find(Boolean);
+    st.name = w.charAt(0).toUpperCase() + w.slice(1);
+    cat = 'name';
+  } else if (P.bye.test(t)) cat = 'bye';
+  else if (P.greet.test(t) && t.length < 40) cat = 'greet';
+  else if (P.comp.test(t)) cat = 'comp';
+  else if (P.thanks.test(t)) cat = 'thanks';
+  else if (P.dis.test(t)) cat = 'dis';
+  else if (P.sad.test(t)) { cat = 'sad'; st.mood = 'sad'; }
+  else if (P.ai.test(t)) cat = 'ai';
+  else if (P.hungry.test(t)) cat = 'hungry';
+  else if (P.happy.test(t)) { cat = 'happy'; st.mood = 'happy'; }
+  else if (QW.test(t)) {
+    cat = 'q';
+    const tp = T.find(x => R(x[0]).test(t));
+    if (tp) { out = pick('t' + T.indexOf(tp), tp[1]); }
+  } else if (t.length <= 4 || /^(да|нет|ок|угу|ага|ладно|ну|хм+|мм+)[.!…]*$/.test(t)) cat = 'short';
+  else {
+    cat = 'stmt';
+    const tp = T.find(x => R(x[0]).test(t));
+    if (tp) out = pick('t' + T.indexOf(tp), tp[1]);
+  }
+
+  if (!out) out = pick(cat, B[cat]);
+  out = fill(out);
+
+  /* лёгкое состояние: после грусти — тёплое продолжение, редкий отвлечённый мёд */
+  if (st.mood === 'sad' && !['sad', 'bye'].includes(cat) && st.n % 3 === 0) {
+    out += " А ты как теперь, {n}? Стало хоть чуть светлее?".replace('{n}', nm());
+    st.mood = 'calm';
+  } else if (st.n - st.honeyAt > 5 && ['stmt', 'q'].includes(cat) && Math.random() < .4 && !/мёд|мед/.test(out)) {
+    out += " " + pick('drift', [
+      "Кстати, я сейчас отвлёкся и подумал о мёде. Извини, бывает.",
+      "Странно: я думал о серьёзном, а получилось про мёд. Ну, может, они связаны.",
+      "Терпение, между прочим, очень похоже на банку с крышкой. Всё внутри уже есть, надо только открыть.",
+      "Иногда мне кажется, что хорошая мысль пахнет мёдом. Но это, наверное, просто я проголодался."]);
+    st.honeyAt = st.n;
+  }
+  if (/мёд|мед/.test(out)) st.honeyAt = st.n;
+  st.last = out; st.lastCat = cat;
+  return { text: out, cat };
+}
+
+/* ---------- Интерфейс ---------- */
+const log = document.getElementById('log'), inp = document.getElementById('in'), stEl = document.getElementById('st');
+const CHIPS = ['Привет!', 'Что такое дружба?', 'Что такое счастье?', 'Почему люди опаздывают?', 'Ты милый', 'Ты не прав', 'Я грущу', 'Кто ты?', 'Мне пора'];
+const STATUS = { greet: 'машет лапой', q: 'задумался', comp: 'смущается', dis: 'удивлённо моргает', bye: 'смотрит вслед', sad: 'сидит рядом', happy: 'улыбается', hungry: 'мечтает о мёде', ai: 'почёсывает затылок' };
+
+function add(text, who) {
+  const d = document.createElement('div');
+  d.className = 'm ' + (who === 'u' ? 'u' : 'b');
+  d.textContent = text;
+  log.appendChild(d);
+  log.scrollTop = log.scrollHeight;
+  return d;
+}
+function send(text) {
+  text = text.trim(); if (!text) return;
+  add(text, 'u'); inp.value = '';
+  const r = reply(text);
+  const typ = add('', 'b'); typ.innerHTML = '<span class="dots"><span></span><span></span><span></span></span>';
+  stEl.textContent = 'думает…';
+  setTimeout(() => {
+    typ.textContent = r.text;
+    stEl.textContent = STATUS[r.cat] || 'сидит рядом с горшочком';
+    log.scrollTop = log.scrollHeight;
+  }, 500 + Math.min(r.text.length * 9, 900));
+}
+function start() {
+  log.innerHTML = '';
+  Object.assign(st, { name: null, n: 0, last: null, lastCat: null, used: {}, mood: 'calm', honeyAt: -9 });
+  add("Ой, привет. Я тут сидел и размышлял о том, что мысли похожи на пчёл: жужжат, пока их не запишешь. Давай поговорим?", 'b');
+  stEl.textContent = 'сидит рядом с горшочком';
+}
+document.getElementById('f').addEventListener('submit', e => { e.preventDefault(); send(inp.value); });
+document.getElementById('clr').onclick = start;
+const chips = document.getElementById('chips');
+CHIPS.forEach(c => { const b = document.createElement('button'); b.type = 'button'; b.textContent = c; b.onclick = () => send(c); chips.appendChild(b); });
+start();
+</script>
+</body>
+</html>
